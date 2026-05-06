@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Propel AI
 
-## Getting Started
+Enterprise AI Operating System for International Patient Departments and medical tourism clinics.
 
-First, run the development server:
+## Platform Scope
+
+- International patient pipeline with drag-and-drop stage movement
+- Compliance readiness scoring and sync-preparation workflows
+- AI coordinator panel for operational suggestions and multilingual actions
+- Audit trail and operational activity feed
+- Executive analytics cards and operational notifications
+- Premium dark enterprise landing page
+
+## Tech Stack
+
+- Next.js (App Router + React Server Components)
+- TypeScript
+- Tailwind CSS
+- shadcn-style UI primitives
+- Framer Motion animations
+- Zustand state management
+- Supabase auth/database client scaffolding
+
+## Folder Structure
+
+- `app/` routes (`/`, `/login`, `/dashboard`)
+- `components/dashboard/` feature modules for operations views
+- `components/ui/` reusable primitive components
+- `lib/` domain types, utilities, mock data, Supabase clients
+- `stores/` global state and workflow orchestration logic
+
+## Environment Variables
+
+Create `.env.local`:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+AI_PROVIDER=openai # or anthropic, optional
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+SUPABASE_SERVICE_ROLE_KEY=required_for_seed_scripts_only
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Run
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Next Production Steps
 
-## Learn More
+- Wire Supabase auth actions on `app/login/page.tsx`
+- Add route middleware for role-based guards (Admin, Coordinator, Doctor, Secretary, Compliance Manager)
+- Replace mock data with Postgres-backed queries/server actions
+- Add websocket or Supabase realtime subscriptions for notifications
+- Add file upload buckets for document management
 
-To learn more about Next.js, take a look at the following resources:
+## Security Notes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Every API route must use authenticated session context and clinic-scoped filters.
+- Never expose `SUPABASE_SERVICE_ROLE_KEY` to browser/client bundles.
+- Tenant isolation is enforced with `clinic_id` + RLS policies on all core tables.
+- Storage object paths are clinic-scoped to prevent cross-clinic leakage.
+- AI outputs are operational guidance only and explicitly avoid diagnosis claims.
