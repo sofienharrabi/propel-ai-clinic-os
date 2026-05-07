@@ -3,23 +3,26 @@ import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
   const { supabase, response } = updateSession(request);
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isProtectedPath = pathname.startsWith("/dashboard") || pathname.startsWith("/api");
-  if (isProtectedPath && !user) {
-    return pathname.startsWith("/api")
-      ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-      : NextResponse.redirect(new URL("/login", request.url));
+  const isApiPath = pathname.startsWith("/api");
+  const isDashboardPath = pathname.startsWith("/dashboard");
+
+  if (isApiPath && !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (pathname === "/login" && user) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+
+  if (isDashboardPath && !user) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
+
   return response;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/api/:path*"],
+  matcher: ["/dashboard/:path*", "/api/:path*"],
 };
