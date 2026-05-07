@@ -21,6 +21,7 @@ export function DashboardShell({ role }: { role: UserRole }) {
     notifications,
     loading,
     error,
+    hydrateError,
     hydrate,
     markNotificationRead,
     movePatient,
@@ -63,7 +64,7 @@ export function DashboardShell({ role }: { role: UserRole }) {
     return <Card className="p-6 text-sm text-zinc-300">Loading patient operations...</Card>;
   }
 
-  if (error) {
+  if (error && !hydrateError) {
     return (
       <Card className="p-6 text-sm text-red-300">
         {error}

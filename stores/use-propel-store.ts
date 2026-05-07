@@ -9,6 +9,7 @@ interface PropelState {
   notifications: NotificationItem[];
   loading: boolean;
   error: string | null;
+  hydrateError: string | null;
   lastUpdatedAt: number | null;
   hydrate: () => Promise<void>;
   hydrateNotifications: () => Promise<void>;
@@ -56,9 +57,10 @@ export const usePropelStore = create<PropelState>((set) => ({
   notifications: [],
   loading: true,
   error: null,
+  hydrateError: null,
   lastUpdatedAt: null,
   hydrate: async () => {
-    set({ loading: true, error: null });
+    set({ loading: true, hydrateError: null });
     try {
       const [patientsRes, auditRes, notificationsRes] = await Promise.all([
         fetch("/api/patients", { cache: "no-store" }),
@@ -82,13 +84,13 @@ export const usePropelStore = create<PropelState>((set) => ({
         notifications:
           notificationsJson?.notifications ?? notificationsJson?.data?.notifications ?? [],
         loading: false,
-        error: null,
+        hydrateError: null,
         lastUpdatedAt: Date.now(),
       });
     } catch (error) {
       set({
         loading: false,
-        error: error instanceof Error ? error.message : "Unexpected error",
+        hydrateError: error instanceof Error ? error.message : "Unexpected error",
       });
     }
   },
