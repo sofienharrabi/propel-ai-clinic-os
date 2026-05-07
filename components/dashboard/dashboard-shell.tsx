@@ -20,8 +20,6 @@ export function DashboardShell({ role }: { role: UserRole }) {
     auditEvents,
     notifications,
     loading,
-    error,
-    hydrateError,
     hydrate,
     markNotificationRead,
     movePatient,
@@ -54,9 +52,9 @@ export function DashboardShell({ role }: { role: UserRole }) {
     if (stage && hasPermission(role, "patient:move_stage")) {
       movePatient(patientId, stage)
         .then(() => toast.success(`Patient moved to ${stage}`))
-        .catch((moveError) =>
-          toast.error(moveError instanceof Error ? moveError.message : "Failed to move patient"),
-        );
+        .catch((moveError) => {
+          console.error(moveError);
+        });
     }
   };
 
@@ -64,16 +62,6 @@ export function DashboardShell({ role }: { role: UserRole }) {
     return <Card className="p-6 text-sm text-zinc-300">Loading patient operations...</Card>;
   }
 
-  if (error && !hydrateError) {
-    return (
-      <Card className="p-6 text-sm text-red-300">
-        {error}
-        <Button className="ml-3" size="sm" variant="outline" onClick={() => hydrate()}>
-          Retry
-        </Button>
-      </Card>
-    );
-  }
 
   if (patients.length === 0) {
     return <Card className="p-6 text-sm text-zinc-400">No patients yet. Add a patient to start the pipeline.</Card>;
@@ -149,17 +137,11 @@ export function DashboardShell({ role }: { role: UserRole }) {
                                   });
                                   if (result.ok) {
                                     toast.success(result.message);
-                                  } else {
-                                    toast.error(result.message);
                                   }
                                 })
-                                .catch((syncError) =>
-                                  toast.error(
-                                    syncError instanceof Error
-                                      ? syncError.message
-                                      : "Failed to run sync readiness",
-                                  ),
-                                );
+                                .catch((syncError) => {
+                                  console.error(syncError);
+                                });
                             }}
                           >
                             Sync Readiness
@@ -185,9 +167,7 @@ export function DashboardShell({ role }: { role: UserRole }) {
                                 toast.success("Document uploaded");
                                 await hydrate();
                               } catch (uploadError) {
-                                toast.error(
-                                  uploadError instanceof Error ? uploadError.message : "Upload failed",
-                                );
+                                console.error(uploadError);
                               } finally {
                                 setUploadingPatientId(null);
                               }
@@ -424,7 +404,8 @@ function PatientFormModal({
                   notes,
                 });
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Save failed");
+                console.error(err);
+                setError("Action failed. Please try again.");
               } finally {
                 setLoading(false);
               }
@@ -551,7 +532,7 @@ function PatientDrawer({
                 toast.success("Document uploaded");
                 await onSaved();
               } catch (uploadError) {
-                toast.error(uploadError instanceof Error ? uploadError.message : "Upload failed");
+                console.error(uploadError);
               } finally {
                 setDocLoading(false);
               }
