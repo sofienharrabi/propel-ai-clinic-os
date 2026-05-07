@@ -130,9 +130,11 @@ export const usePropelStore = create<PropelState>((set) => ({
   },
   movePatient: async (patientId, stage) => {
     const previousPatients = usePropelStore.getState().patients;
+    const previousError = usePropelStore.getState().error;
     set((state) => ({
       patients: state.patients.map((p) => (p.id === patientId ? { ...p, stage } : p)),
       notifications: state.notifications,
+      error: null,
     }));
     try {
       const response = await fetch(`/api/patients/${patientId}`, {
@@ -143,6 +145,7 @@ export const usePropelStore = create<PropelState>((set) => ({
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Failed to move patient");
       await usePropelStore.getState().hydrate();
+      set({ error: previousError });
     } catch (error) {
       set({
         patients: previousPatients,
