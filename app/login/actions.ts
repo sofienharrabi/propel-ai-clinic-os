@@ -32,21 +32,11 @@ export async function signUpAction(formData: FormData) {
   }
 
   if (data.user) {
-    const clinicName = `${fullName}'s Clinic`;
-    const { data: clinic, error: clinicError } = await supabase
-      .from("clinics")
-      .insert({ name: clinicName })
-      .select("id")
-      .single();
-    if (clinicError || !clinic) {
-      redirect(`/login?error=${encodeURIComponent(clinicError?.message ?? "Clinic creation failed")}`);
-    }
-
     await supabase.from("profiles").upsert({
       id: data.user.id,
       full_name: fullName,
       role: "coordinator",
-      clinic_id: clinic.id,
+      clinic_id: "00000000-0000-0000-0000-000000000001",
     });
   }
 
