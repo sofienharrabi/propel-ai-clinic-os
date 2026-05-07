@@ -60,7 +60,11 @@ export const usePropelStore = create<PropelState>((set) => ({
   hydrateError: null,
   lastUpdatedAt: null,
   hydrate: async () => {
-    set({ loading: true, hydrateError: null });
+    const existingPatients = usePropelStore.getState().patients;
+    const hasExistingData = existingPatients.length > 0;
+
+    set({ loading: !hasExistingData, hydrateError: null });
+
     try {
       const [patientsRes, auditRes, notificationsRes] = await Promise.all([
         fetch("/api/patients", { cache: "no-store" }),
