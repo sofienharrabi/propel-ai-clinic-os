@@ -13,7 +13,7 @@ export async function getSessionContext(): Promise<SessionContext> {
     userId: "demo-user",
     email: "demo@propel.ai",
     role: "admin" as UserRole,
-    clinicId: "demo-clinic",
+    clinicId: "00000000-0000-0000-0000-000000000001",
     fullName: "Demo User",
   };
 }
