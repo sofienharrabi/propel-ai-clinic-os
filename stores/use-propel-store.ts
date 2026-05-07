@@ -65,28 +65,30 @@ export const usePropelStore = create<PropelState>((set) => ({
         fetch("/api/audit-events", { cache: "no-store" }),
         fetch("/api/notifications", { cache: "no-store" }),
       ]);
-      const patientsJson = await patientsRes.json();
-      const auditJson = await auditRes.json();
-      const notificationsJson = await notificationsRes.json();
 
-      if (!patientsRes.ok) throw new Error(patientsJson.error ?? "Failed to load patients");
-      if (!auditRes.ok) throw new Error(auditJson.error ?? "Failed to load audit events");
+      const patientsJson = await patientsRes.json().catch(() => null);
+      const auditJson = await auditRes.json().catch(() => null);
+      const notificationsJson = await notificationsRes.json().catch(() => null);
+
+      if (!patientsRes.ok) throw new Error(patientsJson?.error ?? "Failed to load patients");
+      if (!auditRes.ok) throw new Error(auditJson?.error ?? "Failed to load audit events");
       if (!notificationsRes.ok) {
-        throw new Error(notificationsJson.error ?? "Failed to load notifications");
+        throw new Error(notificationsJson?.error ?? "Failed to load notifications");
       }
 
       set({
-        patients: patientsJson.patients ?? patientsJson.data?.patients ?? [],
-        auditEvents: auditJson.auditEvents ?? auditJson.data?.auditEvents ?? [],
+        patients: patientsJson?.patients ?? patientsJson?.data?.patients ?? [],
+        auditEvents: auditJson?.auditEvents ?? auditJson?.data?.auditEvents ?? [],
         notifications:
-          notificationsJson.notifications ?? notificationsJson.data?.notifications ?? [],
+          notificationsJson?.notifications ?? notificationsJson?.data?.notifications ?? [],
         loading: false,
+        error: null,
         lastUpdatedAt: Date.now(),
       });
     } catch (error) {
       set({
         loading: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: error instanceof Error ? error.message : "Unexpected error",
       });
     }
   },
