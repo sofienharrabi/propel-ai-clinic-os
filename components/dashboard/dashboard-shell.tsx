@@ -6,13 +6,34 @@ import { cn, formatPercent } from "@/lib/utils";
 import { usePropelStore } from "@/stores/use-propel-store";
 import { DndContext, DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { Bell, Bot, Plus, ShieldCheck, Stethoscope, UploadCloud, X } from "lucide-react";
-import { ReactNode, useEffect, useState } from "react";
+import {
+  Archive,
+  Bell,
+  Bot,
+  Plus,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  Stethoscope,
+  Trash2,
+  UploadCloud,
+  X,
+} from "lucide-react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { hasPermission } from "@/lib/rbac";
 import { useLiveClinicData } from "@/hooks/use-live-clinic-data";
+const inputCls =
+  "w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-cyan-500";
+
+type ConfirmAction =
+  | { type: "archive"; patient: Patient }
+  | { type: "delete"; patient: Patient }
+  | { type: "deleteArchived"; patient: Patient }
+  | { type: "restore"; patient: Patient }
+  | { type: "clearDemo" };
 
 export function DashboardShell({ role }: { role: UserRole }) {
   const {
@@ -26,10 +47,20 @@ export function DashboardShell({ role }: { role: UserRole }) {
     runSyncReadiness,
     createPatient,
     updatePatient,
+    archivePatient,
+    restorePatient,
+    deletePatient,
+    clearDemoWorkspace,
   } = usePropelStore();
+
   const [uploadingPatientId, setUploadingPatientId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [archivedOpen, setArchivedOpen] = useState(false);
+  const [archiveSearch, setArchiveSearch] = useState("");
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
   const [syncResult, setSyncResult] = useState<{
     patientName: string;
     ok: boolean;
@@ -46,6 +77,20 @@ export function DashboardShell({ role }: { role: UserRole }) {
   }, [hydrate]);
   useLiveClinicData(hydrate, 12000);
 
+  const activePatients = useMemo(() => patients.filter((p) => !p.archived), [patients]);
+  const archivedPatients = useMemo(() => patients.filter((p) => p.archived), [patients]);
+
+  const filteredArchivedPatients = useMemo(() => {
+    const term = archiveSearch.trim().toLowerCase();
+    if (!term) return archivedPatients;
+    return archivedPatients.filter((p) =>
+      [p.name, p.treatmentType, p.coordinatorAssigned ?? "", p.stageBeforeArchive ?? p.stage]
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [archivedPatients, archiveSearch]);
+
   const onDragEnd = (event: DragEndEvent) => {
     const patientId = String(event.active.id);
     const stage = event.over?.id as (typeof pipelineStages)[number] | undefined;
@@ -58,32 +103,65 @@ export function DashboardShell({ role }: { role: UserRole }) {
     }
   };
 
+  const runConfirmedAction = async () => {
+    if (!confirmAction) return;
+    setConfirmLoading(true);
+    try {
+      if (confirmAction.type === "archive") {
+        await archivePatient(confirmAction.patient.id);
+        if (selectedPatient?.id === confirmAction.patient.id) setSelectedPatient(null);
+        toast.success("Patient archived");
+      } else if (confirmAction.type === "delete" || confirmAction.type === "deleteArchived") {
+        await deletePatient(confirmAction.patient.id);
+        if (selectedPatient?.id === confirmAction.patient.id) setSelectedPatient(null);
+        toast.success("Patient permanently deleted");
+      } else if (confirmAction.type === "restore") {
+        await restorePatient(confirmAction.patient.id);
+        toast.success("Patient restored to active workflow");
+      } else if (confirmAction.type === "clearDemo") {
+        await clearDemoWorkspace();
+        if (selectedPatient) setSelectedPatient(null);
+        toast.success("Demo workspace cleared");
+      }
+      setConfirmAction(null);
+    } catch (error) {
+      console.error(error);
+      toast.error("Action failed. Please retry.");
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
+
   if (loading) {
     return <Card className="p-6 text-sm text-zinc-300">Loading patient operations...</Card>;
   }
 
-
-  if (patients.length === 0) {
-    return <Card className="p-6 text-sm text-zinc-400">No patients yet. Add a patient to start the pipeline.</Card>;
-  }
-
-  const totalRevenue = patients.reduce((acc, p) => acc + p.revenueEstimate, 0);
+  const totalRevenue = activePatients.reduce((acc, p) => acc + p.revenueEstimate, 0);
 
   return (
     <div className="space-y-6">
       <section className="grid gap-4 md:grid-cols-4">
-        <Metric title="Pipeline Patients" value={String(patients.length)} />
-        <Metric title="Average Compliance" value={formatPercent(patients.reduce((a, p) => a + p.complianceScore, 0) / patients.length)} />
+        <Metric title="Pipeline Patients" value={String(activePatients.length)} />
+        <Metric
+          title="Average Compliance"
+          value={
+            activePatients.length
+              ? formatPercent(activePatients.reduce((a, p) => a + p.complianceScore, 0) / activePatients.length)
+              : "0%"
+          }
+        />
         <Metric title="Forecast Revenue" value={`$${totalRevenue.toLocaleString()}`} />
-        <Metric title="Critical Alerts" value={String(patients.filter((p) => p.complianceScore < 70).length)} />
+        <Metric title="Critical Alerts" value={String(activePatients.filter((p) => p.complianceScore < 70).length)} />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
         <Card className="p-4">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-zinc-100">International Patient Pipeline</h2>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-zinc-400">Drag and drop cards to update workflow</span>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setArchivedOpen(true)}>
+                <Archive size={14} className="mr-1" /> Archived Patients ({archivedPatients.length})
+              </Button>
               {hasPermission(role, "patient:create") && (
                 <Button size="sm" onClick={() => setNewOpen(true)}>
                   <Plus size={14} className="mr-1" /> New Patient
@@ -91,95 +169,98 @@ export function DashboardShell({ role }: { role: UserRole }) {
               )}
             </div>
           </div>
-          <DndContext onDragEnd={onDragEnd}>
-            <div className="grid gap-3 overflow-auto pb-2 md:grid-cols-2 xl:grid-cols-4">
-              {pipelineStages.slice(0, 8).map((stage) => (
-                <StageColumn key={stage} stage={stage}>
-                  <p className="mb-3 text-sm font-semibold text-cyan-300">{stage}</p>
-                  <div className="space-y-2">
-                    {patients
-                      .filter((p) => p.stage === stage)
-                      .map((patient) => (
-                        <PatientCard key={patient.id} patientId={patient.id} onOpen={() => setSelectedPatient(patient)}>
-                          <p className="text-sm font-medium text-zinc-100">{patient.name}</p>
-                          <p className="text-xs text-zinc-400">{patient.nationality} - {patient.treatmentType}</p>
-                          <p className="mt-1 text-xs text-zinc-300">Compliance {formatPercent(patient.complianceScore)}</p>
-                          <p
-                            className={cn(
-                              "text-[11px]",
-                              patient.readinessStatus === "ready"
-                                ? "text-emerald-400"
-                                : patient.readinessStatus === "incomplete"
-                                  ? "text-yellow-400"
-                                  : "text-red-400",
-                            )}
-                          >
-                            {patient.readinessStatus.toUpperCase()}
-                          </p>
-                          <p className="text-xs text-zinc-500">{patient.aiInsights}</p>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="mt-2 w-full border border-zinc-700"
-                            disabled={!hasPermission(role, "compliance:validate")}
-                            onClick={() => {
-                              runSyncReadiness(patient.id)
-                                .then((result) => {
-                                  setSyncResult({
-                                    patientName: patient.name,
-                                    ok: result.ok,
-                                    message: result.message,
-                                    score: result.compliance.complianceScore,
-                                    readinessStatus: result.compliance.readinessStatus,
-                                    missingItems: result.compliance.missingItems,
-                                    riskLevel: result.riskLevel,
-                                    recommendedActions: result.recommendedActions,
+
+          {activePatients.length === 0 ? (
+            <Card className="p-6 text-sm text-zinc-400">No active patients. Add a patient to start the pipeline.</Card>
+          ) : (
+            <DndContext onDragEnd={onDragEnd}>
+              <div className="grid gap-3 overflow-auto pb-2 md:grid-cols-2 xl:grid-cols-4">
+                {pipelineStages.slice(0, 8).map((stage) => (
+                  <StageColumn key={stage} stage={stage}>
+                    <p className="mb-3 text-sm font-semibold text-cyan-300">{stage}</p>
+                    <div className="space-y-2">
+                      {activePatients
+                        .filter((p) => p.stage === stage)
+                        .map((patient) => (
+                          <PatientCard key={patient.id} patientId={patient.id} onOpen={() => setSelectedPatient(patient)}>
+                            <p className="text-sm font-medium text-zinc-100">{patient.name}</p>
+                            <p className="text-xs text-zinc-400">{patient.nationality} - {patient.treatmentType}</p>
+                            <p className="mt-1 text-xs text-zinc-300">Compliance {formatPercent(patient.complianceScore)}</p>
+                            <p
+                              className={cn(
+                                "text-[11px]",
+                                patient.readinessStatus === "ready"
+                                  ? "text-emerald-400"
+                                  : patient.readinessStatus === "incomplete"
+                                    ? "text-yellow-400"
+                                    : "text-red-400",
+                              )}
+                            >
+                              {patient.readinessStatus.toUpperCase()}
+                            </p>
+                            <p className="text-xs text-zinc-500">{patient.aiInsights}</p>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="mt-2 w-full border border-zinc-700"
+                              disabled={!hasPermission(role, "compliance:validate")}
+                              onClick={() => {
+                                runSyncReadiness(patient.id)
+                                  .then((result) => {
+                                    setSyncResult({
+                                      patientName: patient.name,
+                                      ok: result.ok,
+                                      message: result.message,
+                                      score: result.compliance.complianceScore,
+                                      readinessStatus: result.compliance.readinessStatus,
+                                      missingItems: result.compliance.missingItems,
+                                      riskLevel: result.riskLevel,
+                                      recommendedActions: result.recommendedActions,
+                                    });
+                                    if (result.ok) toast.success(result.message);
+                                  })
+                                  .catch((syncError) => {
+                                    console.error(syncError);
                                   });
-                                  if (result.ok) {
-                                    toast.success(result.message);
-                                  }
-                                })
-                                .catch((syncError) => {
-                                  console.error(syncError);
-                                });
-                            }}
-                          >
-                            Sync Readiness
-                          </Button>
-                          <input
-                            className="mt-2 w-full text-xs text-zinc-400 file:mr-2 file:rounded file:border-0 file:bg-zinc-800 file:px-2 file:py-1 file:text-xs file:text-zinc-200"
-                            type="file"
-                            disabled={!hasPermission(role, "document:upload") || uploadingPatientId === patient.id}
-                            onChange={async (event) => {
-                              const file = event.target.files?.[0];
-                              if (!file) return;
-                              setUploadingPatientId(patient.id);
-                              try {
-                                const formData = new FormData();
-                                formData.append("file", file);
-                                formData.append("documentType", "medical_report");
-                                const response = await fetch(`/api/patients/${patient.id}/documents`, {
-                                  method: "POST",
-                                  body: formData,
-                                });
-                                const data = await response.json();
-                                if (!response.ok) throw new Error(data.error ?? "Upload failed");
-                                toast.success("Document uploaded");
-                                await hydrate();
-                              } catch (uploadError) {
-                                console.error(uploadError);
-                              } finally {
-                                setUploadingPatientId(null);
-                              }
-                            }}
-                          />
-                        </PatientCard>
-                      ))}
-                  </div>
-                </StageColumn>
-              ))}
-            </div>
-          </DndContext>
+                              }}
+                            >
+                              Sync Readiness
+                            </Button>
+                            <input
+                              className="mt-2 w-full text-xs text-zinc-400 file:mr-2 file:rounded file:border-0 file:bg-zinc-800 file:px-2 file:py-1 file:text-xs file:text-zinc-200"
+                              type="file"
+                              disabled={!hasPermission(role, "document:upload") || uploadingPatientId === patient.id}
+                              onChange={async (event) => {
+                                const file = event.target.files?.[0];
+                                if (!file) return;
+                                setUploadingPatientId(patient.id);
+                                try {
+                                  const formData = new FormData();
+                                  formData.append("file", file);
+                                  formData.append("documentType", "medical_report");
+                                  const response = await fetch(`/api/patients/${patient.id}/documents`, {
+                                    method: "POST",
+                                    body: formData,
+                                  });
+                                  const data = await response.json();
+                                  if (!response.ok) throw new Error(data.error ?? "Upload failed");
+                                  toast.success("Document uploaded");
+                                  await hydrate();
+                                } catch (uploadError) {
+                                  console.error(uploadError);
+                                } finally {
+                                  setUploadingPatientId(null);
+                                }
+                              }}
+                            />
+                          </PatientCard>
+                        ))}
+                    </div>
+                  </StageColumn>
+                ))}
+              </div>
+            </DndContext>
+          )}
         </Card>
 
         <div className="space-y-4">
@@ -223,8 +304,22 @@ export function DashboardShell({ role }: { role: UserRole }) {
               ))}
             </div>
           </Card>
+          {role === "admin" && (
+            <Card className="p-4">
+              <h3 className="mb-3 text-sm font-semibold text-zinc-100">Workspace Settings</h3>
+              <Button
+                size="sm"
+                variant="danger"
+                className="w-full"
+                onClick={() => setConfirmAction({ type: "clearDemo" })}
+              >
+                <Trash2 size={14} className="mr-1" /> Clear Demo Workspace
+              </Button>
+            </Card>
+          )}
         </div>
       </div>
+
       {newOpen && (
         <PatientFormModal
           title="Create New Patient"
@@ -236,6 +331,7 @@ export function DashboardShell({ role }: { role: UserRole }) {
           }}
         />
       )}
+
       {selectedPatient && (
         <PatientDrawer
           patient={selectedPatient}
@@ -261,9 +357,13 @@ export function DashboardShell({ role }: { role: UserRole }) {
               recommendedActions: result.recommendedActions,
             });
           }}
+          onArchive={() => setConfirmAction({ type: "archive", patient: selectedPatient })}
+          onDelete={() => setConfirmAction({ type: "delete", patient: selectedPatient })}
         />
       )}
-      {syncResult && <SyncResultModal result={syncResult} onClose={() => setSyncResult(null)} />}
+
+      
+      
     </div>
   );
 }
@@ -427,6 +527,8 @@ function PatientDrawer({
   onSaved,
   onUpdate,
   onSync,
+  onArchive,
+  onDelete,
 }: {
   patient: Patient;
   role: UserRole;
@@ -435,6 +537,8 @@ function PatientDrawer({
   onSaved: () => Promise<void>;
   onUpdate: (patientId: string, input: Record<string, unknown>) => Promise<void>;
   onSync: () => Promise<void>;
+  onArchive: () => void;
+  onDelete: () => void;
 }) {
   const [docType, setDocType] = useState<DocumentType>("passport");
   const [docLoading, setDocLoading] = useState(false);
@@ -461,6 +565,12 @@ function PatientDrawer({
           <div className="mt-2 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => setEditing(true)}>Edit Patient</Button>
             <Button size="sm" onClick={onSync} disabled={!hasPermission(role, "compliance:validate")}>Sync Readiness</Button>
+            <Button size="sm" variant="outline" className="border-amber-600/60 text-amber-300 hover:bg-amber-900/20" onClick={onArchive}>
+              <Archive size={14} className="mr-1" /> Archive Patient
+            </Button>
+            <Button size="sm" variant="danger" onClick={onDelete}>
+              <Trash2 size={14} className="mr-1" /> Delete Patient
+            </Button>
           </div>
         </Card>
 
@@ -579,48 +689,3 @@ function PatientDrawer({
   );
 }
 
-function SyncResultModal({
-  result,
-  onClose,
-}: {
-  result: {
-    patientName: string;
-    ok: boolean;
-    message: string;
-    score: number;
-    readinessStatus: string;
-    missingItems: string[];
-    riskLevel: string;
-    recommendedActions: string[];
-  };
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <Card className="w-full max-w-lg p-5">
-        <h3 className="text-lg font-semibold">Readiness Result - {result.patientName}</h3>
-        <p className="mt-2 text-sm text-zinc-300">{result.message}</p>
-        <p className="mt-2 text-sm">Readiness: <span className="text-cyan-300">{result.readinessStatus}</span></p>
-        <p className="text-sm">Score: {result.score}%</p>
-        <p className="text-sm">Risk Level: {result.riskLevel}</p>
-        <p className="mt-2 text-sm font-medium">Missing Items</p>
-        <ul className="text-xs text-zinc-400">
-          {result.missingItems.length ? result.missingItems.map((item) => <li key={item}>- {item}</li>) : <li>- None</li>}
-        </ul>
-        <p className="mt-2 text-sm font-medium">Recommended Next Actions</p>
-        <ul className="text-xs text-zinc-400">
-          {result.recommendedActions.map((item) => <li key={item}>- {item}</li>)}
-        </ul>
-        <p className="mt-2 text-xs text-zinc-500">
-          Prepared for official workflow. Ready for HealthTürkiye/USHAŞ manual submission when all requirements are complete.
-        </p>
-        <div className="mt-4 flex justify-end">
-          <Button onClick={onClose}>Close</Button>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-const inputCls =
-  "h-10 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 text-sm outline-none ring-cyan-400 focus:ring-1";

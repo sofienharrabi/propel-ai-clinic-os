@@ -194,6 +194,11 @@ function normalizePatient(raw: Partial<Patient>): Patient {
     stage: toStage(String(raw.stage ?? "New Lead")),
     syncReady: typeof raw.syncReady === "boolean" ? raw.syncReady : false,
     documents: Array.isArray(raw.documents) ? raw.documents : [],
+    archived: typeof raw.archived === "boolean" ? raw.archived : false,
+    archivedAt: typeof raw.archivedAt === "string" || raw.archivedAt === null ? raw.archivedAt ?? null : null,
+    archivedBy: typeof raw.archivedBy === "string" || raw.archivedBy === null ? raw.archivedBy ?? null : null,
+    stageBeforeArchive:
+      typeof raw.stageBeforeArchive === "string" ? toStage(raw.stageBeforeArchive) : raw.stageBeforeArchive ?? null,
   };
 }
 
@@ -288,6 +293,10 @@ interface PropelState {
     riskLevel: string;
     recommendedActions: string[];
   }>;
+  archivePatient: (patientId: string) => Promise<void>;
+  restorePatient: (patientId: string) => Promise<void>;
+  deletePatient: (patientId: string) => Promise<void>;
+  clearDemoWorkspace: () => Promise<void>;
 }
 
 export const usePropelStore = create<PropelState>((set, get) => ({
@@ -347,6 +356,10 @@ export const usePropelStore = create<PropelState>((set, get) => ({
       aiInsights: input.notes ?? "New lead",
       bookingProbability: 50,
       documents: [],
+      archived: false,
+      archivedAt: null,
+      archivedBy: null,
+      stageBeforeArchive: null,
     });
     const next = [newPatient, ...patients];
     savePatientsToStorage(next);
@@ -421,5 +434,74 @@ export const usePropelStore = create<PropelState>((set, get) => ({
           ? ["Proceed with booking confirmation"]
           : ["Upload missing required documents", "Re-run readiness sync after documents upload"],
     };
+  },
+  archivePatient: async (patientId) => {
+    const prev = get().patients;
+    const next = prev.map((p) =>
+      p.id === patientId
+        ? normalizePatient({
+            ...p,
+            archived: true,
+            archivedAt: nowIso(),
+            archivedBy: "Demo Admin",
+            stageBeforeArchive: p.stage,
+            lastActivity: nowIso(),
+          })
+        : p,
+    );
+
+    set({ patients: next, error: null, hydrateError: null, lastUpdatedAt: Date.now() });
+    try {
+      savePatientsToStorage(next);
+    } catch {
+      set({ patients: prev, error: "Failed to archive patient", lastUpdatedAt: Date.now() });
+      throw new Error("Failed to archive patient");
+    }
+  },
+  restorePatient: async (patientId) => {
+    const prev = get().patients;
+    const next = prev.map((p) =>
+      p.id === patientId
+        ? normalizePatient({
+            ...p,
+            archived: false,
+            archivedAt: null,
+            archivedBy: null,
+            stage: p.stageBeforeArchive ?? p.stage,
+            stageBeforeArchive: null,
+            lastActivity: nowIso(),
+          })
+        : p,
+    );
+
+    set({ patients: next, error: null, hydrateError: null, lastUpdatedAt: Date.now() });
+    try {
+      savePatientsToStorage(next);
+    } catch {
+      set({ patients: prev, error: "Failed to restore patient", lastUpdatedAt: Date.now() });
+      throw new Error("Failed to restore patient");
+    }
+  },
+  deletePatient: async (patientId) => {
+    const prev = get().patients;
+    const next = prev.filter((p) => p.id !== patientId);
+
+    set({ patients: next, error: null, hydrateError: null, lastUpdatedAt: Date.now() });
+    try {
+      savePatientsToStorage(next);
+    } catch {
+      set({ patients: prev, error: "Failed to delete patient", lastUpdatedAt: Date.now() });
+      throw new Error("Failed to delete patient");
+    }
+  },
+  clearDemoWorkspace: async () => {
+    const prev = get().patients;
+    set({ patients: [], error: null, hydrateError: null, lastUpdatedAt: Date.now() });
+    try {
+      savePatientsToStorage([]);
+    } catch {
+      set({ patients: prev, error: "Failed to clear workspace", lastUpdatedAt: Date.now() });
+      throw new Error("Failed to clear workspace");
+    }
   },
 }));

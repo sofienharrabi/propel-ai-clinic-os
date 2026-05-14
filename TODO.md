@@ -1,0 +1,9 @@
+- [ ] Update lib/types.ts with patient lifecycle fields (archived, archivedAt, archivedBy, stageBeforeArchive)
+- [ ] Update stores/use-propel-store.ts with archive/restore/delete/clear-demo actions and stable persistence/rollback handling
+- [ ] Update components/dashboard/dashboard-shell.tsx to:
+  - [ ] Use active-only patients in pipeline and metrics
+  - [ ] Add archive/delete actions with custom confirmation modals
+  - [ ] Add Archived Patients view with search, restore, permanent delete
+  - [ ] Add Clear Demo Workspace action with confirmation modal
+- [ ] Run npm run build and fix all errors
+- [ ] Verify lifecycle flows (create/move/archive/restore/delete/clear + persistence)

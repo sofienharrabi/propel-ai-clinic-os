@@ -74,6 +74,10 @@ export interface Patient {
   stage: PipelineStage;
   syncReady: boolean;
   documents: PatientDocument[];
+  archived?: boolean;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
+  stageBeforeArchive?: PipelineStage | null;
 }
 
 export interface NotificationItem {
