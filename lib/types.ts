@@ -29,6 +29,7 @@ export type DocumentType =
 
 export type ReadinessStatus = "critical" | "incomplete" | "ready";
 export type DoctorReviewStatus = "pending" | "approved" | "rejected";
+export type SubscriptionStatus = "trial" | "active" | "suspended";
 
 export interface PatientDocument {
   id: string;
@@ -74,6 +75,15 @@ export interface Patient {
   stage: PipelineStage;
   syncReady: boolean;
   documents: PatientDocument[];
+  // USHAŞ compliance fields
+  passportNumber: string | null;
+  arrivalDate: string | null;
+  departureDate: string | null;
+  emergencyContact: string | null;
+  treatmentOutcome: string | null;
+  paymentStatus: string | null;
+  followupScheduled: boolean;
+  // Archive fields
   archived?: boolean;
   archivedAt?: string | null;
   archivedBy?: string | null;

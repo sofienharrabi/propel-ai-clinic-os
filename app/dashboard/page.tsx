@@ -1,12 +1,12 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { signOutAction } from "@/app/login/actions";
+import { getSessionContext } from "@/lib/server-auth";
+import { redirect } from "next/navigation";
 
 export default async function DashboardPage() {
-  const context = {
-    fullName: "Demo User",
-    role: "admin" as const,
-  };
+  const context = await getSessionContext();
+  if (!context) redirect("/login");
 
   return (
     <main className="min-h-screen p-4 md:p-8">
@@ -21,7 +21,7 @@ export default async function DashboardPage() {
               Workflow intelligence, compliance readiness, AI coordination, and executive analytics in one system.
             </p>
             <p className="mt-1 text-xs text-zinc-500">
-              {context.fullName} - {context.role}
+              {context.fullName} — {context.role}
             </p>
           </div>
 

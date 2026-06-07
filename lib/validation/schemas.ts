@@ -16,6 +16,7 @@ export const patientUpdateSchema = z
   .object({
     stage: z.string().optional(),
     name: z.string().min(2).optional(),
+    nationality: z.string().min(2).optional(),
     phone: z.string().min(5).max(30).optional(),
     email: z.string().email().optional(),
     treatmentType: z.string().min(2).optional(),
@@ -25,6 +26,16 @@ export const patientUpdateSchema = z
     notes: z.string().max(2000).optional(),
     doctorReviewStatus: z.enum(["pending", "approved", "rejected"]).optional(),
     doctorNote: z.string().max(2000).optional(),
+    // USHAŞ fields
+    passportNumber: z.string().max(50).optional(),
+    arrivalDate: z.string().optional(),
+    departureDate: z.string().optional(),
+    emergencyContact: z.string().max(200).optional(),
+    treatmentOutcome: z.string().max(500).optional(),
+    paymentStatus: z.string().max(50).optional(),
+    followupScheduled: z.boolean().optional(),
+    // Archive fields
+    archived: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "No updates provided");
 

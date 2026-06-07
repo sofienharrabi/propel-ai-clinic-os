@@ -23,6 +23,19 @@ interface PatientRow {
   doctor_review_status: Patient["doctorReviewStatus"];
   sync_ready: boolean;
   updated_at: string;
+  // USHAŞ fields
+  passport_number?: string | null;
+  arrival_date?: string | null;
+  departure_date?: string | null;
+  emergency_contact?: string | null;
+  treatment_outcome?: string | null;
+  payment_status?: string | null;
+  followup_scheduled?: boolean;
+  // Archive fields
+  archived?: boolean;
+  archived_at?: string | null;
+  archived_by?: string | null;
+  stage_before_archive?: string | null;
   patient_documents?: {
     id: string;
     document_type: PatientDocument["type"];
@@ -42,6 +55,25 @@ export function toPatient(row: PatientRow): Patient {
     verified: doc.verified,
     status: doc.status,
   }));
+
+  const allowedStages = [
+    "New Lead",
+    "AI Qualified",
+    "Coordinator Review",
+    "Doctor Review",
+    "Awaiting Documents",
+    "Treatment Approved",
+    "Visa Preparation",
+    "Arrival Scheduled",
+    "In Treatment",
+    "Post Treatment Follow-up",
+    "Completed",
+  ] as Patient["stage"][];
+
+  const stageBeforeArchive =
+    row.stage_before_archive && allowedStages.includes(row.stage_before_archive as Patient["stage"])
+      ? (row.stage_before_archive as Patient["stage"])
+      : null;
 
   return {
     id: row.id,
@@ -67,5 +99,18 @@ export function toPatient(row: PatientRow): Patient {
     stage: row.stage,
     syncReady: row.sync_ready,
     documents,
+    // USHAŞ fields
+    passportNumber: row.passport_number ?? null,
+    arrivalDate: row.arrival_date ?? null,
+    departureDate: row.departure_date ?? null,
+    emergencyContact: row.emergency_contact ?? null,
+    treatmentOutcome: row.treatment_outcome ?? null,
+    paymentStatus: row.payment_status ?? null,
+    followupScheduled: row.followup_scheduled ?? false,
+    // Archive fields
+    archived: row.archived ?? false,
+    archivedAt: row.archived_at ?? null,
+    archivedBy: row.archived_by ?? null,
+    stageBeforeArchive,
   };
 }

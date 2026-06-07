@@ -1,4 +1,5 @@
 import { UserRole } from "@/lib/types";
+import { createClient } from "@/lib/supabase/server";
 
 export interface SessionContext {
   userId: string;
@@ -8,12 +9,28 @@ export interface SessionContext {
   fullName: string;
 }
 
-export async function getSessionContext(): Promise<SessionContext> {
+export async function getSessionContext(): Promise<SessionContext | null> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("clinic_id, full_name, role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile) return null;
+
   return {
-    userId: "demo-user",
-    email: "demo@propel.ai",
-    role: "admin" as UserRole,
-    clinicId: "00000000-0000-0000-0000-000000000001",
-    fullName: "Demo User",
+    userId: user.id,
+    email: user.email ?? "",
+    role: profile.role as UserRole,
+    clinicId: profile.clinic_id,
+    fullName: profile.full_name,
   };
 }

@@ -7,6 +7,9 @@ import { toPatient } from "@/lib/patient-mappers";
 import { errorResponse, parseJson, successResponse } from "@/lib/validation/api";
 import { patientCreateSchema } from "@/lib/validation/schemas";
 
+const PATIENT_SELECT =
+  "id, clinic_id, name, phone, email, nationality, treatment_type, stage, risk_score, compliance_score, readiness_status, revenue_estimate, coordinator_name, notes, doctor_note, timeline_status, ai_insights, booking_probability, doctor_review_status, sync_ready, updated_at, passport_number, arrival_date, departure_date, emergency_contact, treatment_outcome, payment_status, followup_scheduled, archived, archived_at, archived_by, stage_before_archive, patient_documents(id, document_type, file_path, status, verified, uploaded_at)";
+
 export async function GET() {
   const context = await getSessionContext();
   if (!context) return errorResponse("Unauthorized", 401);
@@ -14,9 +17,7 @@ export async function GET() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("patients")
-    .select(
-      "id, clinic_id, name, phone, email, nationality, treatment_type, stage, risk_score, compliance_score, readiness_status, revenue_estimate, coordinator_name, notes, doctor_note, timeline_status, ai_insights, booking_probability, doctor_review_status, sync_ready, updated_at, patient_documents(id, document_type, file_path, status, verified, uploaded_at)",
-    )
+    .select(PATIENT_SELECT)
     .eq("clinic_id", context.clinicId)
     .order("updated_at", { ascending: false });
 
