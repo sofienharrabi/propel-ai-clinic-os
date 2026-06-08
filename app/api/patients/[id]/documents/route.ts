@@ -71,9 +71,7 @@ export async function POST(
 
     const { data: patientRow } = await supabase
       .from("patients")
-      .select(
-        "id, clinic_id, name, phone, email, nationality, treatment_type, stage, risk_score, compliance_score, readiness_status, revenue_estimate, coordinator_name, notes, doctor_note, timeline_status, ai_insights, booking_probability, doctor_review_status, sync_ready, updated_at, patient_documents(id, document_type, file_path, status, verified, uploaded_at)",
-      )
+      .select("*, patient_documents(id, document_type, file_path, status, verified, uploaded_at)")
       .eq("id", id)
       .eq("clinic_id", context.clinicId)
       .single();
