@@ -2,11 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
-  const { supabase, response } = updateSession(request);
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, response, user } = await updateSession(request);
 
   const pathname = request.nextUrl.pathname;
 
