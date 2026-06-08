@@ -4,6 +4,7 @@ import { createNotification } from "@/lib/notifications/service";
 import { toPatient } from "@/lib/patient-mappers";
 import { getSessionContext } from "@/lib/server-auth";
 import { createClient } from "@/lib/supabase/server";
+import type { Patient } from "@/lib/types";
 import { errorResponse, successResponse } from "@/lib/validation/api";
 import { syncReadinessSchema } from "@/lib/validation/schemas";
 
@@ -11,6 +12,53 @@ function riskLevel(score: number) {
   if (score >= 85) return "low";
   if (score >= 50) return "medium";
   return "high";
+}
+
+// Calls Claude Haiku to generate a 2-sentence readiness assessment.
+// Returns null if ANTHROPIC_API_KEY is not configured or the call fails —
+// the route falls back to the basic computeCompliance result in that case.
+async function generateAiInsights(
+  patient: Patient,
+  compliance: { complianceScore: number; readinessStatus: string; missingItems: string[] },
+): Promise<string | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 256,
+        messages: [
+          {
+            role: "user",
+            content: `You are a medical tourism compliance officer. Write a concise 2-sentence readiness assessment for this patient file.
+
+Patient: ${patient.name}, ${patient.nationality}
+Treatment: ${patient.treatmentType}
+Compliance score: ${compliance.complianceScore}%
+Status: ${compliance.readinessStatus}
+Missing items: ${compliance.missingItems.length === 0 ? "none" : compliance.missingItems.join(", ")}
+Doctor review: ${patient.doctorReviewStatus}
+
+Reply with exactly 2 sentences. No lists, no headers.`,
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) return null;
+    const json = (await res.json()) as { content?: { type: string; text: string }[] };
+    return json.content?.find((c) => c.type === "text")?.text ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(
@@ -40,19 +88,25 @@ export async function POST(
     const compliance = computeCompliance(patient);
     const ready = compliance.readinessStatus === "ready";
 
+    // AI insight is optional — null when key is absent or call fails
+    const aiInsights = await generateAiInsights(patient, compliance);
+
     const { error: updateError } = await supabase
       .from("patients")
       .update({
         compliance_score: compliance.complianceScore,
         readiness_status: compliance.readinessStatus,
         sync_ready: ready,
+        ...(aiInsights ? { ai_insights: aiInsights } : {}),
+        updated_at: new Date().toISOString(),
       })
       .eq("id", id)
       .eq("clinic_id", context.clinicId);
 
     if (updateError) throw new Error(updateError.message);
 
-    const successMessage = "Patient file validated and prepared for official workflow. Ready for HealthTürkiye/USHAŞ manual submission.";
+    const successMessage =
+      "Patient file validated and prepared for official workflow. Ready for HealthTürkiye/USHAŞ manual submission.";
     const failMessage = "Missing required items before official workflow readiness.";
 
     await createAuditEvent({
@@ -67,23 +121,16 @@ export async function POST(
         complianceScore: compliance.complianceScore,
       },
     });
+
     await createNotification({
       clinicId: context.clinicId,
       userId: context.userId,
       patientId: id,
       type: ready ? "ready_for_official_workflow" : "sync_failed",
-      title: ready ? "Patient ready for official workflow preparation" : "Sync readiness failed",
+      title: ready
+        ? "Patient ready for official workflow preparation"
+        : "Sync readiness failed",
       message: ready ? successMessage : failMessage,
-    });
-
-    await createAuditEvent({
-      clinicId: context.clinicId,
-      patientId: id,
-      userId: context.userId,
-      actorLabel: context.fullName,
-      action: "sync_readiness_clicked",
-      description: "Sync readiness validation executed",
-      metadata: {},
     });
 
     return successResponse({
@@ -93,10 +140,17 @@ export async function POST(
       riskLevel: riskLevel(compliance.complianceScore),
       recommendedActions:
         compliance.missingItems.length === 0
-          ? ["Continue coordinator follow-up", "Proceed with manual official submission preparation"]
+          ? [
+              "Continue coordinator follow-up",
+              "Proceed with manual official submission preparation",
+            ]
           : compliance.missingItems.map((item) => `Resolve: ${item}`),
     });
   } catch (error) {
-    return errorResponse(error instanceof Error ? error.message : "Unexpected error", 400);
+    const msg =
+      error instanceof Error
+        ? error.message
+        : (error as { message?: string })?.message ?? "Unexpected error";
+    return errorResponse(msg, 400);
   }
 }
