@@ -4,7 +4,7 @@ import { pipelineStages } from "@/lib/mock-data";
 import { DocumentType, Patient, UserRole } from "@/lib/types";
 import { cn, formatPercent } from "@/lib/utils";
 import { usePropelStore } from "@/stores/use-propel-store";
-import { DndContext, DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { motion } from "framer-motion";
 import {
   Archive,
@@ -56,6 +56,8 @@ export function DashboardShell({ role }: { role: UserRole }) {
   } = usePropelStore();
 
   const [uploadingPatientId, setUploadingPatientId] = useState<string | null>(null);
+  const [syncingPatientId, setSyncingPatientId] = useState<string | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const [newOpen, setNewOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false);
@@ -180,7 +182,7 @@ export function DashboardShell({ role }: { role: UserRole }) {
             {activePatients.length === 0 ? (
               <Card className="p-6 text-sm text-zinc-400">No active patients. Add a patient to start the pipeline.</Card>
             ) : (
-              <DndContext onDragEnd={onDragEnd}>
+              <DndContext sensors={sensors} onDragEnd={onDragEnd}>
                 <div className="grid gap-3 overflow-auto pb-2 md:grid-cols-2 xl:grid-cols-4">
                   {pipelineStages.slice(0, 8).map((stage) => (
                     <StageColumn key={stage} stage={stage}>
@@ -213,9 +215,10 @@ export function DashboardShell({ role }: { role: UserRole }) {
                                 size="sm"
                                 variant="ghost"
                                 className="mt-2 w-full border border-zinc-700"
-                                disabled={!hasPermission(role, "compliance:validate")}
+                                disabled={!hasPermission(role, "compliance:validate") || syncingPatientId === patient.id}
                                 onClick={(event) => {
                                   event.stopPropagation();
+                                  setSyncingPatientId(patient.id);
                                   runSyncReadiness(patient.id)
                                     .then((result) => {
                                       setSyncResult({
@@ -230,10 +233,11 @@ export function DashboardShell({ role }: { role: UserRole }) {
                                       });
                                       if (result.ok) toast.success(result.message);
                                     })
-                                    .catch(() => toast.error("Sync readiness failed. Please retry."));
+                                    .catch(() => toast.error("Sync readiness failed. Please retry."))
+                                    .finally(() => setSyncingPatientId(null));
                                 }}
                               >
-                                Sync Readiness
+                                {syncingPatientId === patient.id ? "Syncing..." : "Sync Readiness"}
                               </Button>
                               <input
                                 className="mt-2 w-full text-xs text-zinc-400 file:mr-2 file:rounded file:border-0 file:bg-zinc-800 file:px-2 file:py-1 file:text-xs file:text-zinc-200"
