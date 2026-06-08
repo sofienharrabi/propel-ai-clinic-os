@@ -721,12 +721,11 @@ function PatientDrawer({
             <Button size="sm" variant="outline" onClick={() => setEditing(true)}>Edit Patient</Button>
             <Button
               size="sm"
-              disabled={!hasPermission(role, "compliance:validate") || syncing}
+              disabled={syncing}
               onClick={async () => {
                 setSyncing(true);
                 try {
                   await onSync();
-                  toast.success("Readiness synced");
                 } catch {
                   toast.error("Sync failed. Please retry.");
                 } finally {
