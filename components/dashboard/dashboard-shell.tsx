@@ -67,6 +67,8 @@ export function DashboardShell({ role }: { role: UserRole }) {
 
   const [syncResult, setSyncResult] = useState<{
     patientName: string;
+    nationality: string;
+    treatmentType: string;
     ok: boolean;
     message: string;
     score: number;
@@ -223,6 +225,8 @@ export function DashboardShell({ role }: { role: UserRole }) {
                                     .then((result) => {
                                       setSyncResult({
                                         patientName: patient.name,
+                                        nationality: patient.nationality,
+                                        treatmentType: patient.treatmentType,
                                         ok: result.ok,
                                         message: result.message,
                                         score: result.compliance.complianceScore,
@@ -355,6 +359,8 @@ export function DashboardShell({ role }: { role: UserRole }) {
             const result = await runSyncReadiness(selectedPatient.id);
             setSyncResult({
               patientName: selectedPatient.name,
+              nationality: selectedPatient.nationality,
+              treatmentType: selectedPatient.treatmentType,
               ok: result.ok,
               message: result.message,
               score: result.compliance.complianceScore,
@@ -490,24 +496,37 @@ export function DashboardShell({ role }: { role: UserRole }) {
               <button onClick={() => setSyncResult(null)}><X size={16} /></button>
             </div>
             <div className="space-y-3 text-sm text-zinc-300">
-              <p><span className="text-zinc-100">Patient:</span> {syncResult.patientName}</p>
-              <p><span className="text-zinc-100">Score:</span> {syncResult.score}%</p>
-              <p><span className="text-zinc-100">Status:</span> {syncResult.readinessStatus}</p>
-              <p><span className="text-zinc-100">Risk:</span> {syncResult.riskLevel}</p>
-              <p><span className="text-zinc-100">Message:</span> {syncResult.message}</p>
-              {syncResult.missingItems.length > 0 && (
+              <div className="rounded-md border border-zinc-700 bg-zinc-900 p-3 space-y-1">
+                <p className="font-medium text-zinc-100">{syncResult.patientName}</p>
+                <p>{syncResult.nationality} &mdash; {syncResult.treatmentType}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-md border border-zinc-700 bg-zinc-900 p-3">
+                  <p className="text-xs uppercase tracking-wide text-zinc-500">Compliance Score</p>
+                  <p className="mt-1 text-lg font-semibold text-zinc-100">{syncResult.score}%</p>
+                </div>
+                <div className="rounded-md border border-zinc-700 bg-zinc-900 p-3">
+                  <p className="text-xs uppercase tracking-wide text-zinc-500">Readiness Status</p>
+                  <p className={`mt-1 text-lg font-semibold ${syncResult.readinessStatus === "ready" ? "text-emerald-400" : syncResult.readinessStatus === "incomplete" ? "text-yellow-400" : "text-red-400"}`}>
+                    {syncResult.readinessStatus.toUpperCase()}
+                  </p>
+                </div>
+              </div>
+              {syncResult.missingItems.length > 0 ? (
                 <div>
-                  <p className="text-zinc-100">Missing:</p>
+                  <p className="font-medium text-zinc-100">Missing items</p>
                   <ul className="mt-1 list-inside list-disc text-red-300">
                     {syncResult.missingItems.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
                 </div>
+              ) : (
+                <p className="text-emerald-400">All required documents present.</p>
               )}
               {syncResult.recommendedActions.length > 0 && (
                 <div>
-                  <p className="text-zinc-100">Recommended actions:</p>
+                  <p className="font-medium text-zinc-100">Recommended actions</p>
                   <ul className="mt-1 list-inside list-disc text-cyan-300">
                     {syncResult.recommendedActions.map((action) => (
                       <li key={action}>{action}</li>
@@ -777,7 +796,6 @@ function PatientDrawer({
             </Button>
             <Button
               size="sm"
-              disabled={!hasPermission(role, "patient:doctor_review")}
               onClick={async () => {
                 const note = (document.getElementById(`doctor-note-${patient.id}`) as HTMLTextAreaElement | null)?.value ?? "";
                 try {
@@ -794,7 +812,6 @@ function PatientDrawer({
             <Button
               size="sm"
               variant="danger"
-              disabled={!hasPermission(role, "patient:doctor_review")}
               onClick={async () => {
                 const note = (document.getElementById(`doctor-note-${patient.id}`) as HTMLTextAreaElement | null)?.value ?? "";
                 try {
