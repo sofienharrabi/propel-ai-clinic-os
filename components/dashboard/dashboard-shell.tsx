@@ -615,6 +615,8 @@ function PatientFormModal({
     estimatedRevenue?: number;
     assignedCoordinator?: string;
     notes?: string;
+    paymentStatus?: string;
+    passportNumber?: string;
   }) => Promise<void>;
   initial?: Partial<Patient>;
 }) {
@@ -627,6 +629,8 @@ function PatientFormModal({
   const [estimatedRevenue, setEstimatedRevenue] = useState(String(initial?.revenueEstimate ?? ""));
   const [assignedCoordinator, setAssignedCoordinator] = useState(initial?.coordinatorAssigned ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [paymentStatus, setPaymentStatus] = useState(initial?.paymentStatus ?? "");
+  const [passportNumber, setPassportNumber] = useState(initial?.passportNumber ?? "");
   const [formError, setFormError] = useState<string | null>(null);
 
   return (
@@ -645,6 +649,8 @@ function PatientFormModal({
           <input className={inputCls} placeholder="Estimated revenue" value={estimatedRevenue} onChange={(e) => setEstimatedRevenue(e.target.value)} />
           <input className={inputCls} placeholder="Assigned coordinator" value={assignedCoordinator} onChange={(e) => setAssignedCoordinator(e.target.value)} />
           <input className={inputCls} placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <input className={inputCls} placeholder="Payment status" value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)} />
+          <input className={inputCls} placeholder="Passport number" value={passportNumber} onChange={(e) => setPassportNumber(e.target.value)} />
         </div>
         {formError && <p className="mt-2 text-xs text-red-300">{formError}</p>}
         <div className="mt-4 flex justify-end gap-2">
@@ -668,6 +674,8 @@ function PatientFormModal({
                   estimatedRevenue: Number(estimatedRevenue || 0),
                   assignedCoordinator: assignedCoordinator || undefined,
                   notes: notes || undefined,
+                  paymentStatus: paymentStatus || undefined,
+                  passportNumber: passportNumber || undefined,
                 });
               } catch (err) {
                 setFormError(err instanceof Error ? err.message : "Action failed. Please try again.");
