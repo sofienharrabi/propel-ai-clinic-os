@@ -27,7 +27,6 @@ export async function POST(
   const { id } = await params;
 
   try {
-    assertPermission(context, "document:upload");
     const form = await request.formData();
     const file = form.get("file");
     const parsed = documentUploadSchema.safeParse({

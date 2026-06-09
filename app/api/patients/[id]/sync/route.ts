@@ -72,8 +72,6 @@ export async function POST(
   if (!parsed.success) return errorResponse("Invalid patient id", 400);
 
   try {
-    assertPermission(context, "compliance:validate");
-
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("patients")

@@ -72,7 +72,6 @@ export async function PATCH(
         doctorNote: body.doctorNote,
       });
       if (!doctorParsed.success) return errorResponse("Invalid doctor review payload", 400);
-      assertPermission(context, "patient:doctor_review");
       updates.doctor_review_status = body.doctorReviewStatus;
       updates.doctor_note = body.doctorNote ?? null;
     }
