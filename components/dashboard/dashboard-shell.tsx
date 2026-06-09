@@ -246,7 +246,7 @@ export function DashboardShell({ role }: { role: UserRole }) {
                               <input
                                 className="mt-2 w-full text-xs text-zinc-400 file:mr-2 file:rounded file:border-0 file:bg-zinc-800 file:px-2 file:py-1 file:text-xs file:text-zinc-200"
                                 type="file"
-                                disabled={!hasPermission(role, "document:upload") || uploadingPatientId === patient.id}
+                                disabled={uploadingPatientId === patient.id}
                                 onChange={async (event) => {
                                   const file = event.target.files?.[0];
                                   if (!file) return;
@@ -842,7 +842,7 @@ function PatientDrawer({
           <input
             className="mt-2 w-full text-xs text-zinc-400 file:mr-2 file:rounded file:border-0 file:bg-zinc-800 file:px-2 file:py-1 file:text-xs file:text-zinc-200"
             type="file"
-            disabled={!hasPermission(role, "document:upload") || docLoading}
+            disabled={docLoading}
             onChange={async (event) => {
               const file = event.target.files?.[0];
               if (!file) return;
